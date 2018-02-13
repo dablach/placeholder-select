@@ -1,4 +1,4 @@
-# placeholder_select
+# placeholder-select
 Placeholder plugin for CKEditor
 
 Usage Examples:
