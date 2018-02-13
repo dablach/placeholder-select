@@ -16,8 +16,8 @@ config.placeholder_select = {
 // placeholders list can also have additional info
 config.placeholder_select = {
     placeholders: [
-        {value: "placeholder1_value", text: "placeholder1_text", label: "placeholder1_label"},
-        {value: "placeholder2_value", text: "placeholder2_text", label: "placeholder2_label"}
+        {value: "placeholder1_value", text: "placeholder1_text", label: "<b>placeholder1_label</b>"},
+        {value: "placeholder2_value", text: "placeholder2_text", label: "<b>placeholder2_label</b>"}
     ]
 };
 ```
