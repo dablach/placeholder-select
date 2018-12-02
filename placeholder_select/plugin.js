@@ -2,7 +2,7 @@
  * Placeholder plugin for CKEditor
  *
  * @author Sujeet <sujeetkv90@gmail.com>
- * @link https://github.com/sujeet-kumar/placeholder-select
+ * @link https://github.com/sujeetkv/placeholder-select
  * 
  * Originally created by Troy Lutton https://github.com/troylutton/ckeditor
  */
