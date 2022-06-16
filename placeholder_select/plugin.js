@@ -7,6 +7,7 @@
  * Originally created by Troy Lutton https://github.com/troylutton/ckeditor
  */
 CKEDITOR.plugins.add('placeholder_select', {
+    lang: ['en', 'el', 'de'],
     requires: ['richcombo'],
 
     onLoad: function () {
@@ -15,23 +16,23 @@ CKEDITOR.plugins.add('placeholder_select', {
     },
 
     init: function (editor) {
-        var placeholder_format = '[[%placeholder%]]';
-
         //  array of placeholders to choose from that'll be inserted into the editor
         var placeholders = [];
 
         // init the default config - empty placeholders
         var defaultConfig = {
             placeholders: [],
-            toolLabel: 'Insert placeholder',
-            toolTitle: 'Insert placeholder',
-            listGroup: 'Insert placeholder'
+            format: '[[%placeholder%]]',
         };
 
         // merge defaults with the passed in items        
         var config = CKEDITOR.tools.extend(defaultConfig, editor.config.placeholder_select || {}, true);
 
-        // run through an create the set of items to use
+        var placeholderRegex = config.format.split('%placeholder%', 2).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('(?<name>.+?)');
+        var placeholderParseRegex = new RegExp('^'+placeholderRegex+'$');
+        var placeholderReplaceRegex = new RegExp(placeholderRegex, 'g');
+
+        // run through and create the set of items to use
         for (var i in config.placeholders) {
             var item = false;
 
@@ -49,38 +50,36 @@ CKEDITOR.plugins.add('placeholder_select', {
             }
 
             if (item) {
-                // get our custom placeholder format
-                var placeholder = placeholder_format.replace('%placeholder%', item.value);
-                placeholders.push([placeholder, item.label, item.text]);
+                placeholders.push(item);
             }
         }
 
         // add the menu to the editor
         editor.ui.addRichCombo('placeholder_select', {
-            label: config.toolLabel,
-            title: config.toolTitle,
-            voiceLabel: config.toolLabel,
-            className: 'cke_format',
+            label: editor.lang.placeholder_select.dropdown_label,
+            title: editor.lang.placeholder_select.dropdown_title,
+            voiceLabel: editor.lang.placeholder_select.dropdown_voiceLabel,
+            toolbar: 'placeholder_select',
             multiSelect: false,
 
             panel: {
-                css: [editor.config.contentsCss, CKEDITOR.skin.getPath('editor')],
-                voiceLabel: editor.lang.panelVoiceLabel,
+                css: [CKEDITOR.skin.getPath('editor')].concat(editor.config.contentsCss),
+                voiceLabel: editor.lang.placeholder_select.panelVoiceLabel,
                 multiSelect: false,
                 attributes: { 'aria-label': config.toolLabel }
             },
 
             init: function () {
-                this.startGroup(config.listGroup);
+                this.startGroup(this.label);
                 for (var i in placeholders) {
-                    this.add(placeholders[i][0], placeholders[i][1], placeholders[i][2]);
+                    this.add(placeholders[i].value, placeholders[i].label, placeholders[i].text);
                 }
             },
 
             onClick: function (value) {
                 editor.focus();
                 editor.fire('saveSnapshot');
-                editor.insertHtml(value);
+                editor.insertHtml(config.format.replace('%placeholder%', value));
                 editor.fire('saveSnapshot');
             }
         });
@@ -90,7 +89,7 @@ CKEDITOR.plugins.add('placeholder_select', {
             ui: 'placeholder_select',
             pathName: 'placeholder_select',
             // We need to have wrapping element.
-            template: '<span class="cke_placeholder_select">[[]]</span>',
+            template: '<span class="cke_placeholder_select">{label}</span>',
 
             downcast: function () {
                 return new CKEDITOR.htmlParser.text('[[' + this.data.name + ']]');
@@ -98,22 +97,28 @@ CKEDITOR.plugins.add('placeholder_select', {
 
             init: function () {
                 // Note that placeholder markup characters are stripped for the name.
-                this.setData('name', this.element.getText().slice(2, -2));
+                var match = this.element.getText().match(placeholderParseRegex);
+                var name = match.groups.name;
+                this.setData('name', name);
+                this.setData('label', placeholders.find(p => p.value === name).label);
             },
 
             data: function () {
-                this.element.setText('[[' + this.data.name + ']]');
+                this.element.setText('⟪' + this.data.label + '⟫');
             },
 
             getLabel: function () {
                 return this.editor.lang.widget.label.replace(/%1/, this.data.name + ' placeholder_select');
             }
         });
+
+        editor.placeholder_select = {
+            placeholders: placeholders,
+            placeholderReplaceRegex: placeholderReplaceRegex,
+        };
     },
 
     afterInit: function (editor) {
-        var placeholderReplaceRegex = /\[\[([^\[\]])+\]\]/g;
-
         editor.dataProcessor.dataFilter.addRules({
             text: function (text, node) {
                 var dtd = node.parent && CKEDITOR.dtd[node.parent.name];
@@ -123,19 +128,23 @@ CKEDITOR.plugins.add('placeholder_select', {
                 if (dtd && !dtd.span)
                     return;
 
-                return text.replace(placeholderReplaceRegex, function (match) {
-                    // Creating widget code.
-                    var widgetWrapper = null,
-                        innerElement = new CKEDITOR.htmlParser.element('span', {
-                            'class': 'cke_placeholder_select'
-                        });
+                return text.replace(editor.placeholder_select.placeholderReplaceRegex, function (match, name) {
+                    if(editor.placeholder_select.placeholders.some(p => p.value === name)) {
+                        // Creating widget code.
+                        var widgetWrapper = null,
+                            innerElement = new CKEDITOR.htmlParser.element('span', {
+                                'class': 'cke_placeholder_select'
+                            });
 
-                    // Adds placeholder identifier as innertext.
-                    innerElement.add(new CKEDITOR.htmlParser.text(match));
-                    widgetWrapper = editor.widgets.wrapElement(innerElement, 'placeholder_select');
+                        // Adds placeholder identifier as innertext.
+                        innerElement.add(new CKEDITOR.htmlParser.text(match));
+                        widgetWrapper = editor.widgets.wrapElement(innerElement, 'placeholder_select');
 
-                    // Return outerhtml of widget wrapper so it will be placed as replacement.
-                    return widgetWrapper.getOuterHtml();
+                        // Return outerhtml of widget wrapper so it will be placed as replacement.
+                        return widgetWrapper.getOuterHtml();
+                    } else {
+                        return match;
+                    }
                 });
             }
         });
